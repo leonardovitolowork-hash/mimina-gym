@@ -34,29 +34,14 @@ let currentDay = 1;
 const STORAGE = "mimina_gym_v3";
 let data = JSON.parse(localStorage.getItem(STORAGE) || "{}");
 if (!data.history)    data.history    = [];
-if (!data.bodyweight) data.bodyweight = []; // [{ date, weight }]
-if (!data.week)       data.week       = 1;
+if (!data.bodyweight) data.bodyweight = [];
 
-let sessionRatings  = {};
-let sessionDone     = {};
-let autoTimerAfterLog = false;
+let sessionRatings = {};
+let sessionDone    = {};
 
 function save() {
   localStorage.setItem(STORAGE, JSON.stringify(data));
 }
-
-/* ── Week tracker ── */
-
-function renderWeek() {
-  document.getElementById("weekNum").textContent = `Week ${data.week}`;
-}
-
-document.getElementById("weekMinus").addEventListener("click", () => {
-  if (data.week > 1) { data.week--; save(); renderWeek(); }
-});
-document.getElementById("weekPlus").addEventListener("click", () => {
-  data.week++; save(); renderWeek();
-});
 
 /* ── Smart suggestion ── */
 
@@ -85,9 +70,9 @@ function getSuggestion(exName, fallback) {
   const last = getLastEntry(exName);
   if (!last) return { text: `First time — try ${fallback}`, suggested: null, lastNote: null };
 
-  const w     = parseFloat(last.weight);
-  const r     = RATINGS.find(r => r.key === last.rating);
-  const delta = r ? r.delta : 0;
+  const w        = parseFloat(last.weight);
+  const r        = RATINGS.find(r => r.key === last.rating);
+  const delta    = r ? r.delta : 0;
   const lastNote = last.note && last.note.trim() ? last.note.trim() : null;
 
   if (isNaN(w)) return { text: `No weight logged last time`, suggested: null, lastNote };
@@ -165,9 +150,7 @@ function renderWorkout() {
 function setDone(i, exName) {
   const checked = document.getElementById(`done_${i}`).checked;
   sessionDone[exName] = checked;
-  const card = document.getElementById(`exCard_${i}`);
-  card.classList.toggle("exDone", checked);
-  // Auto-start rest timer when ticking done
+  document.getElementById(`exCard_${i}`).classList.toggle("exDone", checked);
   if (checked) startTimer(90);
 }
 
@@ -204,7 +187,6 @@ function logSession() {
     done:   !!sessionDone[ex[0]]
   }));
 
-  // Log body weight if filled
   const bwVal = document.getElementById("bwInput").value.trim();
   if (bwVal) {
     data.bodyweight.push({ date: new Date().toLocaleDateString(), weight: parseFloat(bwVal) });
@@ -214,7 +196,6 @@ function logSession() {
   data.history.push({
     id:        Date.now(),
     day:       currentDay,
-    week:      data.week,
     date:      new Date().toLocaleString(),
     exercises: exercises
   });
@@ -309,7 +290,6 @@ function renderHistory() {
       <div class="historyTop">
         <div>
           <strong>Day ${session.day}</strong>
-          ${session.week ? `<span class="weekTag">Week ${session.week}</span>` : ""}
           <div class="small">${session.date}</div>
         </div>
         <button class="delBtn" onclick="deleteSession(${realIdx})">Delete</button>
@@ -361,9 +341,8 @@ function importBackup() {
         const parsed = JSON.parse(ev.target.result);
         if (!parsed.history || !Array.isArray(parsed.history)) { alert("Invalid backup file 🌸"); return; }
         if (!confirm(`Import ${parsed.history.length} session(s)? This will REPLACE your current history.`)) return;
-        data = { history: parsed.history, bodyweight: parsed.bodyweight || [], week: parsed.week || 1 };
+        data = { history: parsed.history, bodyweight: parsed.bodyweight || [] };
         save();
-        renderWeek();
         renderHistory();
         renderChart();
         renderBWChart();
@@ -474,7 +453,6 @@ function renderBWChart() {
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("service-worker.js");
 
 /* ── Init ── */
-renderWeek();
 renderWorkout();
 renderHistory();
 renderChart();
