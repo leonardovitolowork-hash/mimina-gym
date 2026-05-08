@@ -11,16 +11,16 @@ document.getElementById("quote").textContent =
 
 const PLAN = {
   1: [
-    ["Leg Press",        "3x10-12", "10-20kg"],
-    ["Hip Thrust",       "4x8-12",  "5-10kg"],
-    ["Leg Curl",         "3x10-12", "8-12kg"],
-    ["Abductor",         "3x12-20", "15-25kg"]
+    ["Leg Press",         "3x10-12", "10-20kg"],
+    ["Hip Thrust",        "4x8-12",  "5-10kg"],
+    ["Leg Curl",          "3x10-12", "8-12kg"],
+    ["Abductor",          "3x12-20", "15-25kg"]
   ],
   2: [
-    ["Lat Pulldown",     "3x10-12", "11-15kg"],
-    ["Seated Row",       "3x10-12", "4.5-8kg"],
-    ["Glute Kickback",   "3x12",    "5-10kg"],
-    ["Rear Delt Machine","3x12-15", "2.5-5kg"]
+    ["Lat Pulldown",      "3x10-12", "11-15kg"],
+    ["Seated Row",        "3x10-12", "4.5-8kg"],
+    ["Glute Kickback",    "3x12",    "5-10kg"],
+    ["Rear Delt Machine", "3x12-15", "2.5-5kg"]
   ]
 };
 
@@ -53,7 +53,9 @@ function renderWorkout() {
 
   card.innerHTML = `
     ${rows}
-    <button class="actionBtn" onclick="logSession()">Log Day ${currentDay} Workout ✨</button>
+    <button class="actionBtn" onclick="logSession()">
+      Log Day ${currentDay} Workout ✨
+    </button>
     <div id="logStatus" class="logStatus"></div>
   `;
 
@@ -79,27 +81,26 @@ function logSession() {
   renderHistory();
   renderChart();
 
-  document.getElementById("logStatus").textContent = "Saved ✨ Proud of you 💗";
-  setTimeout(() => {
-    document.getElementById("logStatus").textContent = "";
-  }, 2000);
+  const status = document.getElementById("logStatus");
+  status.textContent = "Saved ✨ Proud of you 💗";
+  setTimeout(() => { status.textContent = ""; }, 2500);
 }
 
 /* ── Day toggle ── */
 
-document.getElementById("day1Btn").onclick = () => {
+document.getElementById("day1Btn").addEventListener("click", () => {
   currentDay = 1;
   document.getElementById("day1Btn").classList.add("active");
   document.getElementById("day2Btn").classList.remove("active");
   renderWorkout();
-};
+});
 
-document.getElementById("day2Btn").onclick = () => {
+document.getElementById("day2Btn").addEventListener("click", () => {
   currentDay = 2;
   document.getElementById("day2Btn").classList.add("active");
   document.getElementById("day1Btn").classList.remove("active");
   renderWorkout();
-};
+});
 
 /* ── Rest timer ── */
 
@@ -175,16 +176,63 @@ function deleteSession(idx) {
   renderChart();
 }
 
+/* ── Export / Import backup ── */
+
+function exportBackup() {
+  if (!data.history.length) {
+    alert("No workout history to export yet 🌸");
+    return;
+  }
+  const json = JSON.stringify(data, null, 2);
+  const blob = new Blob([json], { type: "application/json" });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement("a");
+  const date = new Date().toISOString().slice(0, 10);
+  a.href     = url;
+  a.download = `mimina-gym-backup-${date}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function importBackup() {
+  const input = document.createElement("input");
+  input.type  = "file";
+  input.accept = ".json,application/json";
+  input.onchange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      try {
+        const parsed = JSON.parse(ev.target.result);
+        if (!parsed.history || !Array.isArray(parsed.history)) {
+          alert("Invalid backup file 🌸");
+          return;
+        }
+        if (!confirm(`Import ${parsed.history.length} session(s)? This will REPLACE your current history.`)) return;
+        data = parsed;
+        save();
+        renderHistory();
+        renderChart();
+        alert("Backup restored ✨");
+      } catch {
+        alert("Could not read file. Make sure it is a valid backup 🌸");
+      }
+    };
+    reader.readAsText(file);
+  };
+  input.click();
+}
+
 /* ── Progress chart ── */
 
 let chart;
 const select = document.getElementById("exerciseSelect");
 
-// Attach the onchange ONCE at startup — never overwrite it again
+// Attach onchange ONCE — never overwrite it
 select.addEventListener("change", () => renderChart(select.value));
 
 function renderChart(forcedName) {
-  // Build deduplicated list of all exercise names across all sessions
   const allNames = [];
   data.history.forEach(session => {
     session.exercises.forEach(ex => {
@@ -192,24 +240,23 @@ function renderChart(forcedName) {
     });
   });
 
-  // Rebuild options while preserving the current selection
-  const prev = forcedName || select.value;
-  select.innerHTML = allNames.length
-    ? allNames.map(n => `<option value="${n}"${n === prev ? " selected" : "}">${n}</option>`).join("")
-    : `<option value="">No data yet</option>`;
-
   if (!allNames.length) {
+    select.innerHTML = `<option value="">No data yet</option>`;
     if (chart) { chart.destroy(); chart = null; }
     return;
   }
 
-  // Use forcedName, then whatever is now selected in the dropdown
-  const selected = forcedName && allNames.includes(forcedName)
+  // Decide which exercise to show
+  const selected = (forcedName && allNames.includes(forcedName))
     ? forcedName
-    : (select.value || allNames[0]);
-  select.value = selected;
+    : (allNames.includes(select.value) ? select.value : allNames[0]);
 
-  // Collect one data point per session that contains this exercise
+  // Rebuild options, marking the selected one
+  select.innerHTML = allNames
+    .map(n => `<option value="${n}"${n === selected ? " selected" : ""}>${n}</option>`)
+    .join("");
+
+  // Gather data points
   const points = [];
   data.history.forEach((session, i) => {
     const match = session.exercises.find(ex => ex.name === selected);
@@ -222,23 +269,22 @@ function renderChart(forcedName) {
     }
   });
 
-  const ctx = document.getElementById("progressChart");
   if (chart) chart.destroy();
 
-  chart = new Chart(ctx, {
+  chart = new Chart(document.getElementById("progressChart"), {
     type: "line",
     data: {
       labels: points.map(p => p.label),
       datasets: [{
-        label: `${selected} (kg)`,
-        data:   points.map(p => p.value),
-        tension: 0.35,
-        fill: true,
-        borderColor: "#e75480",
-        backgroundColor: "rgba(231,84,128,0.12)",
+        label:              `${selected} (kg)`,
+        data:               points.map(p => p.value),
+        tension:            0.35,
+        fill:               true,
+        borderColor:        "#e75480",
+        backgroundColor:    "rgba(231,84,128,0.12)",
         pointBackgroundColor: "#e75480",
-        pointRadius: 5,
-        spanGaps: true
+        pointRadius:        5,
+        spanGaps:           true
       }]
     },
     options: {

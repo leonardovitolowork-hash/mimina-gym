@@ -3,116 +3,67 @@
 <head>
 
 <meta charset="utf-8">
-
-<meta
-  name="viewport"
-  content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
 <title>Mimina Gym</title>
-
 <meta name="theme-color" content="#ffd6e7">
-
 <link rel="manifest" href="manifest.json">
-
 <link rel="stylesheet" href="style.css">
-
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 </head>
-
 <body>
 
 <div class="wrap">
 
   <div class="hero">
-
     <h1>Mimina Gym 🌸</h1>
-
     <p id="quote"></p>
-
   </div>
 
   <div class="seg">
-
-    <button id="day1Btn" class="active">
-      Day 1
-    </button>
-
-    <button id="day2Btn">
-      Day 2
-    </button>
-
+    <button id="day1Btn" class="active">Day 1</button>
+    <button id="day2Btn">Day 2</button>
   </div>
 
   <div id="workout"></div>
 
+  <!-- Rest Timer -->
   <div class="card">
-
-    <div class="head">
-
-      <h2>Rest Timer 🌸</h2>
-
-    </div>
-
+    <div class="head"><h2>Rest Timer 🌸</h2></div>
     <div class="timerWrap">
-
-      <div id="timerDisplay">
-        01:30
-      </div>
-
+      <div id="timerDisplay">01:30</div>
       <div class="timerBtns">
-
-        <button onclick="startTimer(60)">
-          60s
-        </button>
-
-        <button onclick="startTimer(90)">
-          90s
-        </button>
-
-        <button onclick="startTimer(120)">
-          120s
-        </button>
-
+        <button onclick="startTimer(60)">60s</button>
+        <button onclick="startTimer(90)">90s</button>
+        <button onclick="startTimer(120)">120s</button>
       </div>
-
-      <div class="breath">
-        Breathe slowly 💗
-      </div>
-
+      <div class="breath">Breathe slowly 💗</div>
     </div>
-
   </div>
 
+  <!-- Progress chart -->
   <div class="card">
-
     <div class="head">
-
       <h2>Progress 🌸</h2>
-
       <select id="exerciseSelect"></select>
-
     </div>
-
     <canvas id="progressChart"></canvas>
-
   </div>
 
+  <!-- Workout History -->
   <div class="card">
-
-    <div class="head">
-
-      <h2>Workout History ✨</h2>
-
-    </div>
-
+    <div class="head"><h2>Workout History ✨</h2></div>
     <div id="history"></div>
 
+    <!-- Backup buttons -->
+    <div class="backupRow">
+      <button class="backupBtn exportBtn" onclick="exportBackup()">💾 Export backup</button>
+      <button class="backupBtn importBtn" onclick="importBackup()">📂 Import backup</button>
+    </div>
   </div>
 
 </div>
 
 <script src="app.js"></script>
-
 </body>
 </html>
