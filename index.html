@@ -1,36 +1,54 @@
 <!doctype html>
 <html lang="en">
 <head>
-
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
 <title>Mimina Gym</title>
-<meta name="theme-color" content="#ffd6e7">
+<meta name="theme-color" content="#ff5c8a">
 <link rel="manifest" href="manifest.json">
 <link rel="stylesheet" href="style.css">
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
 </head>
 <body>
 
 <div class="wrap">
 
+  <!-- Hero -->
   <div class="hero">
-    <h1>Mimina Gym 🌸</h1>
+    <div class="heroTop">
+      <h1>Mimina Gym 🌸</h1>
+      <div class="weekControl">
+        <button id="weekMinus">−</button>
+        <span id="weekNum">Week 1</span>
+        <button id="weekPlus">+</button>
+      </div>
+    </div>
     <p id="quote"></p>
   </div>
 
+  <!-- Day tabs -->
   <div class="seg">
     <button id="day1Btn" class="active">Day 1</button>
     <button id="day2Btn">Day 2</button>
   </div>
 
+  <!-- Workout -->
   <div id="workout"></div>
+
+  <!-- Body weight log -->
+  <div class="card">
+    <div class="head"><h2>Body Weight 💗</h2></div>
+    <div class="bwRow">
+      <input id="bwInput" placeholder="Today's weight (kg)" inputmode="decimal" style="margin-top:0">
+      <span class="bwHint">Saved when you log your workout</span>
+    </div>
+    <canvas id="bwChart" style="margin-top:14px"></canvas>
+  </div>
 
   <!-- Rest Timer -->
   <div class="card">
     <div class="head"><h2>Rest Timer 🌸</h2></div>
-    <div class="timerWrap">
+    <div class="timerWrap" id="timerWrap">
       <div id="timerDisplay">01:30</div>
       <div class="timerBtns">
         <button onclick="startTimer(60)">60s</button>
@@ -50,12 +68,10 @@
     <canvas id="progressChart"></canvas>
   </div>
 
-  <!-- Workout History -->
+  <!-- History -->
   <div class="card">
     <div class="head"><h2>Workout History ✨</h2></div>
     <div id="history"></div>
-
-    <!-- Backup buttons -->
     <div class="backupRow">
       <button class="backupBtn exportBtn" onclick="exportBackup()">💾 Export backup</button>
       <button class="backupBtn importBtn" onclick="importBackup()">📂 Import backup</button>

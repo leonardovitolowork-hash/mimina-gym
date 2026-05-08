@@ -24,29 +24,43 @@ const PLAN = {
   ]
 };
 
-// Rating config: key, emoji, label, weight delta
 const RATINGS = [
-  { key: "easy",  emoji: "😅", label: "Too easy",  delta: +2.5 },
-  { key: "good",  emoji: "💪", label: "Just right", delta:  0   },
-  { key: "hard",  emoji: "😤", label: "Too hard",  delta: -2.5 }
+  { key: "easy", emoji: "😅", label: "Too easy",   delta: +2.5 },
+  { key: "good", emoji: "💪", label: "Just right", delta:  0   },
+  { key: "hard", emoji: "😤", label: "Too hard",   delta: -2.5 }
 ];
 
 let currentDay = 1;
 const STORAGE = "mimina_gym_v3";
 let data = JSON.parse(localStorage.getItem(STORAGE) || "{}");
-if (!data.history) data.history = [];
+if (!data.history)    data.history    = [];
+if (!data.bodyweight) data.bodyweight = []; // [{ date, weight }]
+if (!data.week)       data.week       = 1;
 
-// In-session ratings state: { exName: 'easy'|'good'|'hard' }
-let sessionRatings = {};
+let sessionRatings  = {};
+let sessionDone     = {};
+let autoTimerAfterLog = false;
 
 function save() {
   localStorage.setItem(STORAGE, JSON.stringify(data));
 }
 
+/* ── Week tracker ── */
+
+function renderWeek() {
+  document.getElementById("weekNum").textContent = `Week ${data.week}`;
+}
+
+document.getElementById("weekMinus").addEventListener("click", () => {
+  if (data.week > 1) { data.week--; save(); renderWeek(); }
+});
+document.getElementById("weekPlus").addEventListener("click", () => {
+  data.week++; save(); renderWeek();
+});
+
 /* ── Smart suggestion ── */
 
 function getLastEntry(exName) {
-  // Walk history newest-first and find last session containing this exercise
   for (let i = data.history.length - 1; i >= 0; i--) {
     const match = data.history[i].exercises.find(e => e.name === exName);
     if (match) return match;
@@ -54,22 +68,37 @@ function getLastEntry(exName) {
   return null;
 }
 
+function getPersonalBest(exName) {
+  let pb = 0;
+  data.history.forEach(session => {
+    session.exercises.forEach(ex => {
+      if (ex.name === exName) {
+        const w = parseFloat(ex.weight);
+        if (!isNaN(w) && w > pb) pb = w;
+      }
+    });
+  });
+  return pb;
+}
+
 function getSuggestion(exName, fallback) {
   const last = getLastEntry(exName);
-  if (!last) return { text: `First time — try ${fallback}`, suggested: null };
+  if (!last) return { text: `First time — try ${fallback}`, suggested: null, lastNote: null };
 
   const w     = parseFloat(last.weight);
   const r     = RATINGS.find(r => r.key === last.rating);
   const delta = r ? r.delta : 0;
+  const lastNote = last.note && last.note.trim() ? last.note.trim() : null;
 
-  if (isNaN(w)) return { text: `No weight logged last time`, suggested: null };
+  if (isNaN(w)) return { text: `No weight logged last time`, suggested: null, lastNote };
 
-  const next    = Math.max(0, w + delta);
-  const rLabel  = r ? `${r.emoji} ${r.label}` : "no rating";
-  const arrow   = delta > 0 ? "↑" : delta < 0 ? "↓" : "→";
+  const next   = Math.max(0, w + delta);
+  const rLabel = r ? `${r.emoji} ${r.label}` : "no rating";
+  const arrow  = delta > 0 ? "↑" : delta < 0 ? "↓" : "→";
   return {
-    text: `Last: ${w} kg (${rLabel}) ${arrow} Try ${next} kg`,
-    suggested: next
+    text: `Last: ${w} kg (${rLabel}) ${arrow} Try ${next} kg`,
+    suggested: next,
+    lastNote
   };
 }
 
@@ -77,6 +106,7 @@ function getSuggestion(exName, fallback) {
 
 function renderWorkout() {
   sessionRatings = {};
+  sessionDone    = {};
   const wrap = document.getElementById("workout");
   wrap.innerHTML = "";
 
@@ -87,52 +117,82 @@ function renderWorkout() {
     const name       = ex[0];
     const suggestion = getSuggestion(name, ex[2]);
     const prefill    = suggestion.suggested !== null ? suggestion.suggested : "";
+    const pb         = getPersonalBest(name);
 
     const ratingBtns = RATINGS.map(r => `
-      <button
-        type="button"
-        class="ratingBtn"
-        id="rating_${i}_${r.key}"
-        onclick="setRating(${i}, '${r.key}', '${name}')"
-        title="${r.label}">
+      <button type="button" class="ratingBtn" id="rating_${i}_${r.key}"
+        onclick="setRating(${i},'${r.key}','${name}')" title="${r.label}">
         ${r.emoji}
-      </button>
-    `).join("");
+      </button>`).join("");
+
+    const noteReminder = suggestion.lastNote
+      ? `<div class="noteReminder">📌 Last note: ${suggestion.lastNote}</div>`
+      : "";
 
     return `
       <div class="exercise" id="exCard_${i}">
-        <h3>${name}</h3>
+        <div class="exHeader">
+          <h3>${name}</h3>
+          <label class="doneLabel">
+            <input type="checkbox" class="doneCheck" id="done_${i}"
+              onchange="setDone(${i},'${name}')">
+            <span class="doneTick"></span>
+            Done
+          </label>
+        </div>
         <div class="meta">${ex[1]}</div>
-        <div class="suggestion" id="sug_${i}">${suggestion.text}</div>
-        <input id="weight_${i}" placeholder="Weight used (kg)" inputmode="decimal" value="${prefill}">
+        <div class="suggestion">${suggestion.text}</div>
+        ${pb > 0 ? `<div class="pbBadge" id="pb_${i}">🏆 PB: ${pb} kg</div>` : `<div id="pb_${i}"></div>`}
+        ${noteReminder}
+        <input id="weight_${i}" placeholder="Weight used (kg)" inputmode="decimal" value="${prefill}"
+          oninput="checkPB(${i},'${name}')">
         <div class="ratingRow">
           <span class="ratingLabel">How did it feel?</span>
           <div class="ratingBtns">${ratingBtns}</div>
         </div>
         <textarea id="note_${i}" placeholder="Notes for yourself 🌸"></textarea>
-      </div>
-    `;
+      </div>`;
   }).join("");
 
   card.innerHTML = `
     ${rows}
-    <button class="actionBtn" onclick="logSession()">
-      Log Day ${currentDay} Workout ✨
-    </button>
-    <div id="logStatus" class="logStatus"></div>
-  `;
+    <button class="actionBtn" onclick="logSession()">Log Day ${currentDay} Workout ✨</button>
+    <div id="logStatus" class="logStatus"></div>`;
 
   wrap.appendChild(card);
 }
 
+function setDone(i, exName) {
+  const checked = document.getElementById(`done_${i}`).checked;
+  sessionDone[exName] = checked;
+  const card = document.getElementById(`exCard_${i}`);
+  card.classList.toggle("exDone", checked);
+  // Auto-start rest timer when ticking done
+  if (checked) startTimer(90);
+}
+
 function setRating(i, key, exName) {
   sessionRatings[exName] = key;
-
-  // Highlight selected button
   RATINGS.forEach(r => {
     const btn = document.getElementById(`rating_${i}_${r.key}`);
     if (btn) btn.classList.toggle("ratingActive", r.key === key);
   });
+}
+
+function checkPB(i, exName) {
+  const val = parseFloat(document.getElementById(`weight_${i}`).value);
+  const pb  = getPersonalBest(exName);
+  const el  = document.getElementById(`pb_${i}`);
+  if (!el) return;
+  if (!isNaN(val) && val > pb) {
+    el.innerHTML = `🏆 New PB incoming! ${val} kg`;
+    el.className = "pbBadge pbNew";
+  } else if (pb > 0) {
+    el.innerHTML = `🏆 PB: ${pb} kg`;
+    el.className = "pbBadge";
+  } else {
+    el.innerHTML = "";
+  }
 }
 
 function logSession() {
@@ -140,25 +200,35 @@ function logSession() {
     name:   ex[0],
     weight: document.getElementById(`weight_${i}`).value.trim(),
     note:   document.getElementById(`note_${i}`).value.trim(),
-    rating: sessionRatings[ex[0]] || null
+    rating: sessionRatings[ex[0]] || null,
+    done:   !!sessionDone[ex[0]]
   }));
 
-  const session = {
+  // Log body weight if filled
+  const bwVal = document.getElementById("bwInput").value.trim();
+  if (bwVal) {
+    data.bodyweight.push({ date: new Date().toLocaleDateString(), weight: parseFloat(bwVal) });
+    document.getElementById("bwInput").value = "";
+  }
+
+  data.history.push({
     id:        Date.now(),
     day:       currentDay,
+    week:      data.week,
     date:      new Date().toLocaleString(),
     exercises: exercises
-  };
+  });
 
-  data.history.push(session);
   save();
   renderHistory();
   renderChart();
+  renderBWChart();
   sessionRatings = {};
+  sessionDone    = {};
 
   const status = document.getElementById("logStatus");
   status.textContent = "Saved ✨ Proud of you 💗";
-  setTimeout(() => { status.textContent = ""; }, 2500);
+  setTimeout(() => { status.textContent = ""; renderWorkout(); }, 2500);
 }
 
 /* ── Day toggle ── */
@@ -169,7 +239,6 @@ document.getElementById("day1Btn").addEventListener("click", () => {
   document.getElementById("day2Btn").classList.remove("active");
   renderWorkout();
 });
-
 document.getElementById("day2Btn").addEventListener("click", () => {
   currentDay = 2;
   document.getElementById("day2Btn").classList.add("active");
@@ -185,11 +254,14 @@ function startTimer(seconds) {
   clearInterval(timer);
   let remaining = seconds;
   updateTimer(remaining);
+  const wrap = document.getElementById("timerWrap");
+  wrap.classList.add("timerRunning");
   timer = setInterval(() => {
     remaining--;
     updateTimer(remaining);
     if (remaining <= 0) {
       clearInterval(timer);
+      wrap.classList.remove("timerRunning");
       if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
       alert("Rest complete 🌸");
     }
@@ -219,30 +291,37 @@ function renderHistory() {
     div.className = "historyItem";
 
     const exRows = session.exercises.map(ex => {
-      const r = ex.rating ? RATINGS.find(x => x.key === ex.rating) : null;
+      const r    = ex.rating ? RATINGS.find(x => x.key === ex.rating) : null;
+      const tick = ex.done ? `<span class="doneBadge">✓</span>` : "";
       return `
         <div class="historyExRow">
-          <span class="historyExName">${ex.name}</span>
+          <span class="historyExName">${tick}${ex.name}</span>
           <span class="historyExWeight">${ex.weight ? ex.weight + " kg" : "—"}</span>
           ${r ? `<span class="historyRating">${r.emoji} ${r.label}</span>` : ""}
           ${ex.note ? `<div class="small historyNote">${ex.note}</div>` : ""}
-        </div>
-      `;
+        </div>`;
     }).join("");
+
+    const doneCount = session.exercises.filter(e => e.done).length;
+    const total     = session.exercises.length;
 
     div.innerHTML = `
       <div class="historyTop">
         <div>
           <strong>Day ${session.day}</strong>
+          ${session.week ? `<span class="weekTag">Week ${session.week}</span>` : ""}
           <div class="small">${session.date}</div>
         </div>
         <button class="delBtn" onclick="deleteSession(${realIdx})">Delete</button>
       </div>
+      <div class="doneBar">
+        <div class="doneBarFill" style="width:${total ? (doneCount/total*100) : 0}%"></div>
+      </div>
+      <div class="small" style="margin-bottom:6px">${doneCount}/${total} exercises completed</div>
       <details class="sessionDetails">
-        <summary>View exercises (${session.exercises.length})</summary>
+        <summary>View exercises (${total})</summary>
         <div class="exList">${exRows}</div>
-      </details>
-    `;
+      </details>`;
     h.appendChild(div);
   });
 }
@@ -255,20 +334,16 @@ function deleteSession(idx) {
   renderChart();
 }
 
-/* ── Export / Import backup ── */
+/* ── Export / Import ── */
 
 function exportBackup() {
-  if (!data.history.length) {
-    alert("No workout history to export yet 🌸");
-    return;
-  }
+  if (!data.history.length) { alert("No workout history to export yet 🌸"); return; }
   const json = JSON.stringify(data, null, 2);
   const blob = new Blob([json], { type: "application/json" });
   const url  = URL.createObjectURL(blob);
   const a    = document.createElement("a");
-  const date = new Date().toISOString().slice(0, 10);
   a.href     = url;
-  a.download = `mimina-gym-backup-${date}.json`;
+  a.download = `mimina-gym-backup-${new Date().toISOString().slice(0,10)}.json`;
   a.click();
   URL.revokeObjectURL(url);
 }
@@ -277,27 +352,24 @@ function importBackup() {
   const input  = document.createElement("input");
   input.type   = "file";
   input.accept = ".json,application/json";
-  input.onchange = (e) => {
+  input.onchange = e => {
     const file = e.target.files[0];
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = (ev) => {
+    reader.onload = ev => {
       try {
         const parsed = JSON.parse(ev.target.result);
-        if (!parsed.history || !Array.isArray(parsed.history)) {
-          alert("Invalid backup file 🌸");
-          return;
-        }
+        if (!parsed.history || !Array.isArray(parsed.history)) { alert("Invalid backup file 🌸"); return; }
         if (!confirm(`Import ${parsed.history.length} session(s)? This will REPLACE your current history.`)) return;
-        data = parsed;
+        data = { history: parsed.history, bodyweight: parsed.bodyweight || [], week: parsed.week || 1 };
         save();
+        renderWeek();
         renderHistory();
         renderChart();
+        renderBWChart();
         renderWorkout();
         alert("Backup restored ✨");
-      } catch {
-        alert("Could not read file. Make sure it is a valid backup 🌸");
-      }
+      } catch { alert("Could not read file 🌸"); }
     };
     reader.readAsText(file);
   };
@@ -312,11 +384,9 @@ select.addEventListener("change", () => renderChart(select.value));
 
 function renderChart(forcedName) {
   const allNames = [];
-  data.history.forEach(session => {
-    session.exercises.forEach(ex => {
-      if (!allNames.includes(ex.name)) allNames.push(ex.name);
-    });
-  });
+  data.history.forEach(s => s.exercises.forEach(ex => {
+    if (!allNames.includes(ex.name)) allNames.push(ex.name);
+  }));
 
   if (!allNames.length) {
     select.innerHTML = `<option value="">No data yet</option>`;
@@ -339,52 +409,73 @@ function renderChart(forcedName) {
       const w = parseFloat(match.weight);
       const r = match.rating ? RATINGS.find(x => x.key === match.rating) : null;
       points.push({
-        label: `S${i + 1} (${session.date.split(",")[0]})`,
-        value: isNaN(w) ? null : w,
-        ratingEmoji: r ? r.emoji : ""
+        label: `S${i+1} (${session.date.split(",")[0]})${r ? " "+r.emoji : ""}`,
+        value: isNaN(w) ? null : w
       });
     }
   });
 
   if (chart) chart.destroy();
-
   chart = new Chart(document.getElementById("progressChart"), {
     type: "line",
     data: {
-      labels: points.map(p => p.ratingEmoji ? `${p.label} ${p.ratingEmoji}` : p.label),
+      labels: points.map(p => p.label),
       datasets: [{
-        label:               `${selected} (kg)`,
-        data:                points.map(p => p.value),
-        tension:             0.35,
-        fill:                true,
-        borderColor:         "#e75480",
-        backgroundColor:     "rgba(231,84,128,0.12)",
+        label: `${selected} (kg)`,
+        data:  points.map(p => p.value),
+        tension: 0.35, fill: true,
+        borderColor: "#e75480",
+        backgroundColor: "rgba(231,84,128,0.12)",
         pointBackgroundColor: "#e75480",
-        pointRadius:         5,
-        spanGaps:            true
+        pointRadius: 5, spanGaps: true
       }]
     },
     options: {
       responsive: true,
       plugins: { legend: { display: true } },
-      scales: {
-        y: {
-          beginAtZero: false,
-          title: { display: true, text: "kg" }
-        }
-      }
+      scales: { y: { beginAtZero: false, title: { display: true, text: "kg" } } }
+    }
+  });
+}
+
+/* ── Body weight chart ── */
+
+let bwChart;
+
+function renderBWChart() {
+  const pts = data.bodyweight;
+  const ctx = document.getElementById("bwChart");
+  if (bwChart) bwChart.destroy();
+  if (!pts.length) return;
+
+  bwChart = new Chart(ctx, {
+    type: "line",
+    data: {
+      labels: pts.map(p => p.date),
+      datasets: [{
+        label: "Body weight (kg)",
+        data:  pts.map(p => p.weight),
+        tension: 0.35, fill: true,
+        borderColor: "#c084fc",
+        backgroundColor: "rgba(192,132,252,0.12)",
+        pointBackgroundColor: "#c084fc",
+        pointRadius: 5, spanGaps: true
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { display: true } },
+      scales: { y: { beginAtZero: false, title: { display: true, text: "kg" } } }
     }
   });
 }
 
 /* ── Service worker ── */
-
-if ("serviceWorker" in navigator) {
-  navigator.serviceWorker.register("service-worker.js");
-}
+if ("serviceWorker" in navigator) navigator.serviceWorker.register("service-worker.js");
 
 /* ── Init ── */
-
+renderWeek();
 renderWorkout();
 renderHistory();
 renderChart();
+renderBWChart();
