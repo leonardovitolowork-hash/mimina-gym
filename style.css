@@ -11,6 +11,7 @@
 
 *{
   box-sizing:border-box;
+  -webkit-tap-highlight-color:transparent;
 }
 
 body{
@@ -23,9 +24,10 @@ body{
 .wrap{
   max-width:760px;
   margin:auto;
-  padding:16px;
+  padding:16px 16px 80px;
 }
 
+/* Hero */
 .hero{
   background:rgba(255,255,255,.6);
   backdrop-filter:blur(10px);
@@ -35,24 +37,11 @@ body{
   box-shadow:var(--shadow);
   margin-bottom:16px;
 }
+.hero h1{margin:0;font-size:34px;}
+.hero p{margin-top:8px;color:var(--muted);line-height:1.5;}
 
-.hero h1{
-  margin:0;
-  font-size:34px;
-}
-
-.hero p{
-  margin-top:8px;
-  color:var(--muted);
-  line-height:1.5;
-}
-
-.seg{
-  display:flex;
-  gap:10px;
-  margin-bottom:16px;
-}
-
+/* Day tabs */
+.seg{display:flex;gap:10px;margin-bottom:16px;}
 .seg button{
   flex:1;
   padding:14px;
@@ -62,13 +51,14 @@ body{
   color:var(--muted);
   font-weight:800;
   box-shadow:var(--shadow);
+  cursor:pointer;
 }
-
 .seg button.active{
   background:linear-gradient(135deg,var(--pink),var(--pink2));
   color:white;
 }
 
+/* Card */
 .card{
   background:rgba(255,255,255,.7);
   backdrop-filter:blur(12px);
@@ -79,6 +69,7 @@ body{
   margin-bottom:16px;
 }
 
+/* Exercise form */
 .exercise{
   background:white;
   border:1px solid var(--line);
@@ -86,15 +77,8 @@ body{
   padding:16px;
   margin-top:12px;
 }
-
-.exercise h3{
-  margin:0;
-}
-
-.meta{
-  color:var(--muted);
-  margin-top:4px;
-}
+.exercise h3{margin:0;}
+.meta{color:var(--muted);margin-top:4px;font-size:14px;}
 
 input,
 textarea,
@@ -106,38 +90,42 @@ select{
   margin-top:10px;
   background:#fffafd;
   color:var(--text);
+  font:inherit;
 }
-
-textarea{
-  min-height:80px;
+input:focus,textarea:focus{
+  outline:none;
+  border-color:var(--pink);
+  box-shadow:0 0 0 4px rgba(255,92,138,.10);
 }
+textarea{min-height:80px;resize:vertical;}
 
+/* Log button */
 .actionBtn{
   width:100%;
-  margin-top:10px;
+  margin-top:14px;
   border:0;
-  padding:14px;
+  padding:16px;
   border-radius:18px;
   font-weight:800;
+  font-size:16px;
   background:linear-gradient(135deg,var(--pink),var(--pink2));
   color:white;
+  box-shadow:0 8px 20px rgba(255,92,138,.20);
+  cursor:pointer;
 }
-
-.timerWrap{
+.logStatus{
   text-align:center;
+  color:var(--pink);
+  font-weight:800;
+  min-height:22px;
+  margin-top:8px;
+  font-size:14px;
 }
 
-#timerDisplay{
-  font-size:56px;
-  font-weight:900;
-  margin:14px 0;
-}
-
-.timerBtns{
-  display:flex;
-  gap:10px;
-}
-
+/* Timer */
+.timerWrap{text-align:center;}
+#timerDisplay{font-size:56px;font-weight:900;margin:14px 0;}
+.timerBtns{display:flex;gap:10px;}
 .timerBtns button{
   flex:1;
   border:0;
@@ -146,19 +134,92 @@ textarea{
   background:#fff;
   font-weight:800;
   color:var(--pink);
+  cursor:pointer;
 }
+.breath{margin-top:12px;color:var(--muted);}
 
-.breath{
-  margin-top:12px;
-  color:var(--muted);
+/* Progress chart */
+.head{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  flex-wrap:wrap;
+  margin-bottom:10px;
 }
+.head h2{margin:0;}
+.head select{width:auto;margin-top:0;}
 
+/* History */
 .historyItem{
   padding:14px;
   border-radius:18px;
   background:white;
   border:1px solid var(--line);
   margin-top:10px;
+}
+.historyTop{
+  display:flex;
+  justify-content:space-between;
+  align-items:flex-start;
+  gap:10px;
+}
+.delBtn{
+  flex-shrink:0;
+  border:0;
+  background:#ffe0ea;
+  color:#c0224a;
+  font-weight:800;
+  border-radius:14px;
+  padding:9px 14px;
+  cursor:pointer;
+  font-size:13px;
+}
+.sessionDetails{
+  margin-top:10px;
+}
+.sessionDetails summary{
+  cursor:pointer;
+  color:var(--pink);
+  font-weight:800;
+  font-size:14px;
+  user-select:none;
+  list-style:none;
+}
+.sessionDetails summary::before{
+  content:"▸ ";
+}
+.sessionDetails[open] summary::before{
+  content:"▾ ";
+}
+.exList{
+  margin-top:8px;
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+}
+.historyExRow{
+  background:#fff7fa;
+  border:1px solid var(--line);
+  border-radius:14px;
+  padding:10px 12px;
+  display:flex;
+  flex-wrap:wrap;
+  align-items:center;
+  gap:6px;
+}
+.historyExName{
+  font-weight:800;
+  flex:1;
+}
+.historyExWeight{
+  color:var(--pink);
+  font-weight:800;
+  font-size:14px;
+}
+.historyNote{
+  width:100%;
+  font-size:13px;
 }
 
 .small{
