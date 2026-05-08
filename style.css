@@ -78,8 +78,20 @@ body{
   padding:16px;
   margin-top:12px;
 }
-.exercise h3{ margin:0; }
-.meta{ color:var(--muted); margin-top:4px; font-size:14px; }
+.exercise h3{ margin:0 0 2px; }
+.meta{ color:var(--muted); font-size:14px; }
+
+/* Smart suggestion */
+.suggestion{
+  margin-top:8px;
+  padding:9px 12px;
+  background:#fff0f5;
+  border:1px solid var(--line);
+  border-radius:12px;
+  font-size:13px;
+  font-weight:700;
+  color:var(--pink);
+}
 
 input,
 textarea,
@@ -99,6 +111,44 @@ input:focus, textarea:focus{
   box-shadow:0 0 0 4px rgba(255,92,138,.10);
 }
 textarea{ min-height:80px; resize:vertical; }
+
+/* Rating row */
+.ratingRow{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  margin-top:12px;
+  flex-wrap:wrap;
+}
+.ratingLabel{
+  font-size:13px;
+  font-weight:700;
+  color:var(--muted);
+  white-space:nowrap;
+}
+.ratingBtns{
+  display:flex;
+  gap:8px;
+}
+.ratingBtn{
+  border:2px solid var(--line);
+  background:#fffafd;
+  border-radius:50%;
+  width:44px;
+  height:44px;
+  font-size:22px;
+  cursor:pointer;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  transition:transform .15s, border-color .15s, background .15s;
+}
+.ratingBtn:active{ transform:scale(.92); }
+.ratingBtn.ratingActive{
+  border-color:var(--pink);
+  background:#ffe0ec;
+  transform:scale(1.08);
+}
 
 /* Log button */
 .actionBtn{
@@ -198,9 +248,10 @@ textarea{ min-height:80px; resize:vertical; }
   align-items:center;
   gap:6px;
 }
-.historyExName{ font-weight:800; flex:1; }
+.historyExName{ font-weight:800; flex:1; min-width:120px; }
 .historyExWeight{ color:var(--pink); font-weight:800; font-size:14px; }
-.historyNote{ width:100%; font-size:13px; }
+.historyRating{ font-size:13px; color:var(--muted); }
+.historyNote{ width:100%; font-size:13px; color:var(--muted); }
 
 /* Backup buttons */
 .backupRow{

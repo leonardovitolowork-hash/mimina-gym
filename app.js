@@ -24,32 +24,95 @@ const PLAN = {
   ]
 };
 
+// Rating config: key, emoji, label, weight delta
+const RATINGS = [
+  { key: "easy",  emoji: "😅", label: "Too easy",  delta: +2.5 },
+  { key: "good",  emoji: "💪", label: "Just right", delta:  0   },
+  { key: "hard",  emoji: "😤", label: "Too hard",  delta: -2.5 }
+];
+
 let currentDay = 1;
 const STORAGE = "mimina_gym_v3";
 let data = JSON.parse(localStorage.getItem(STORAGE) || "{}");
 if (!data.history) data.history = [];
 
+// In-session ratings state: { exName: 'easy'|'good'|'hard' }
+let sessionRatings = {};
+
 function save() {
   localStorage.setItem(STORAGE, JSON.stringify(data));
+}
+
+/* ── Smart suggestion ── */
+
+function getLastEntry(exName) {
+  // Walk history newest-first and find last session containing this exercise
+  for (let i = data.history.length - 1; i >= 0; i--) {
+    const match = data.history[i].exercises.find(e => e.name === exName);
+    if (match) return match;
+  }
+  return null;
+}
+
+function getSuggestion(exName, fallback) {
+  const last = getLastEntry(exName);
+  if (!last) return { text: `First time — try ${fallback}`, suggested: null };
+
+  const w     = parseFloat(last.weight);
+  const r     = RATINGS.find(r => r.key === last.rating);
+  const delta = r ? r.delta : 0;
+
+  if (isNaN(w)) return { text: `No weight logged last time`, suggested: null };
+
+  const next    = Math.max(0, w + delta);
+  const rLabel  = r ? `${r.emoji} ${r.label}` : "no rating";
+  const arrow   = delta > 0 ? "↑" : delta < 0 ? "↓" : "→";
+  return {
+    text: `Last: ${w} kg (${rLabel}) ${arrow} Try ${next} kg`,
+    suggested: next
+  };
 }
 
 /* ── Workout form ── */
 
 function renderWorkout() {
+  sessionRatings = {};
   const wrap = document.getElementById("workout");
   wrap.innerHTML = "";
 
   const card = document.createElement("div");
   card.className = "card";
 
-  const rows = PLAN[currentDay].map((ex, i) => `
-    <div class="exercise">
-      <h3>${ex[0]}</h3>
-      <div class="meta">${ex[1]} · Recommended ${ex[2]}</div>
-      <input id="weight_${i}" placeholder="Weight used (kg)" inputmode="decimal">
-      <textarea id="note_${i}" placeholder="Notes for yourself 🌸"></textarea>
-    </div>
-  `).join("");
+  const rows = PLAN[currentDay].map((ex, i) => {
+    const name       = ex[0];
+    const suggestion = getSuggestion(name, ex[2]);
+    const prefill    = suggestion.suggested !== null ? suggestion.suggested : "";
+
+    const ratingBtns = RATINGS.map(r => `
+      <button
+        type="button"
+        class="ratingBtn"
+        id="rating_${i}_${r.key}"
+        onclick="setRating(${i}, '${r.key}', '${name}')"
+        title="${r.label}">
+        ${r.emoji}
+      </button>
+    `).join("");
+
+    return `
+      <div class="exercise" id="exCard_${i}">
+        <h3>${name}</h3>
+        <div class="meta">${ex[1]}</div>
+        <div class="suggestion" id="sug_${i}">${suggestion.text}</div>
+        <input id="weight_${i}" placeholder="Weight used (kg)" inputmode="decimal" value="${prefill}">
+        <div class="ratingRow">
+          <span class="ratingLabel">How did it feel?</span>
+          <div class="ratingBtns">${ratingBtns}</div>
+        </div>
+        <textarea id="note_${i}" placeholder="Notes for yourself 🌸"></textarea>
+      </div>
+    `;
+  }).join("");
 
   card.innerHTML = `
     ${rows}
@@ -62,11 +125,22 @@ function renderWorkout() {
   wrap.appendChild(card);
 }
 
+function setRating(i, key, exName) {
+  sessionRatings[exName] = key;
+
+  // Highlight selected button
+  RATINGS.forEach(r => {
+    const btn = document.getElementById(`rating_${i}_${r.key}`);
+    if (btn) btn.classList.toggle("ratingActive", r.key === key);
+  });
+}
+
 function logSession() {
   const exercises = PLAN[currentDay].map((ex, i) => ({
     name:   ex[0],
     weight: document.getElementById(`weight_${i}`).value.trim(),
-    note:   document.getElementById(`note_${i}`).value.trim()
+    note:   document.getElementById(`note_${i}`).value.trim(),
+    rating: sessionRatings[ex[0]] || null
   }));
 
   const session = {
@@ -80,6 +154,7 @@ function logSession() {
   save();
   renderHistory();
   renderChart();
+  sessionRatings = {};
 
   const status = document.getElementById("logStatus");
   status.textContent = "Saved ✨ Proud of you 💗";
@@ -143,13 +218,17 @@ function renderHistory() {
     const div = document.createElement("div");
     div.className = "historyItem";
 
-    const exRows = session.exercises.map(ex => `
-      <div class="historyExRow">
-        <span class="historyExName">${ex.name}</span>
-        <span class="historyExWeight">${ex.weight ? ex.weight + " kg" : "—"}</span>
-        ${ex.note ? `<div class="small historyNote">${ex.note}</div>` : ""}
-      </div>
-    `).join("");
+    const exRows = session.exercises.map(ex => {
+      const r = ex.rating ? RATINGS.find(x => x.key === ex.rating) : null;
+      return `
+        <div class="historyExRow">
+          <span class="historyExName">${ex.name}</span>
+          <span class="historyExWeight">${ex.weight ? ex.weight + " kg" : "—"}</span>
+          ${r ? `<span class="historyRating">${r.emoji} ${r.label}</span>` : ""}
+          ${ex.note ? `<div class="small historyNote">${ex.note}</div>` : ""}
+        </div>
+      `;
+    }).join("");
 
     div.innerHTML = `
       <div class="historyTop">
@@ -195,8 +274,8 @@ function exportBackup() {
 }
 
 function importBackup() {
-  const input = document.createElement("input");
-  input.type  = "file";
+  const input  = document.createElement("input");
+  input.type   = "file";
   input.accept = ".json,application/json";
   input.onchange = (e) => {
     const file = e.target.files[0];
@@ -214,6 +293,7 @@ function importBackup() {
         save();
         renderHistory();
         renderChart();
+        renderWorkout();
         alert("Backup restored ✨");
       } catch {
         alert("Could not read file. Make sure it is a valid backup 🌸");
@@ -228,8 +308,6 @@ function importBackup() {
 
 let chart;
 const select = document.getElementById("exerciseSelect");
-
-// Attach onchange ONCE — never overwrite it
 select.addEventListener("change", () => renderChart(select.value));
 
 function renderChart(forcedName) {
@@ -246,25 +324,24 @@ function renderChart(forcedName) {
     return;
   }
 
-  // Decide which exercise to show
   const selected = (forcedName && allNames.includes(forcedName))
     ? forcedName
     : (allNames.includes(select.value) ? select.value : allNames[0]);
 
-  // Rebuild options, marking the selected one
   select.innerHTML = allNames
     .map(n => `<option value="${n}"${n === selected ? " selected" : ""}>${n}</option>`)
     .join("");
 
-  // Gather data points
   const points = [];
   data.history.forEach((session, i) => {
     const match = session.exercises.find(ex => ex.name === selected);
     if (match) {
       const w = parseFloat(match.weight);
+      const r = match.rating ? RATINGS.find(x => x.key === match.rating) : null;
       points.push({
         label: `S${i + 1} (${session.date.split(",")[0]})`,
-        value: isNaN(w) ? null : w
+        value: isNaN(w) ? null : w,
+        ratingEmoji: r ? r.emoji : ""
       });
     }
   });
@@ -274,17 +351,17 @@ function renderChart(forcedName) {
   chart = new Chart(document.getElementById("progressChart"), {
     type: "line",
     data: {
-      labels: points.map(p => p.label),
+      labels: points.map(p => p.ratingEmoji ? `${p.label} ${p.ratingEmoji}` : p.label),
       datasets: [{
-        label:              `${selected} (kg)`,
-        data:               points.map(p => p.value),
-        tension:            0.35,
-        fill:               true,
-        borderColor:        "#e75480",
-        backgroundColor:    "rgba(231,84,128,0.12)",
+        label:               `${selected} (kg)`,
+        data:                points.map(p => p.value),
+        tension:             0.35,
+        fill:                true,
+        borderColor:         "#e75480",
+        backgroundColor:     "rgba(231,84,128,0.12)",
         pointBackgroundColor: "#e75480",
-        pointRadius:        5,
-        spanGaps:           true
+        pointRadius:         5,
+        spanGaps:            true
       }]
     },
     options: {
