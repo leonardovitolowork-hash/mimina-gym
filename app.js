@@ -11,16 +11,22 @@ document.getElementById("quote").textContent =
 
 const PLAN = {
   1: [
-    ["Leg Press",         "3x10-12", "10-20kg"],
-    ["Hip Thrust",        "4x8-12",  "5-10kg"],
-    ["Leg Curl",          "3x10-12", "8-12kg"],
-    ["Abductor",          "3x12-20", "15-25kg"]
+    ["Leg Press",            "3x10-12",       "10-20kg"],
+    ["Hip Thrust",           "4x8-12",         "5-10kg"],
+    ["Leg Curl",             "3x10-12",        "8-12kg"],
+    ["Abductor",             "3x12-20",       "15-25kg"],
+    ["Assisted Split Squat", "2-3x8 / leg", "Bodyweight"],
+    ["Plank",                "2x20-30 sec",  "Bodyweight"],
+    ["Walk",                 "5-8 min",       "Easy pace"]
   ],
   2: [
-    ["Lat Pulldown",      "3x10-12", "11-15kg"],
-    ["Seated Row",        "3x10-12", "4.5-8kg"],
-    ["Glute Kickback",    "3x12",    "5-10kg"],
-    ["Rear Delt Machine", "3x12-15", "2.5-5kg"]
+    ["Lat Pulldown",      "3x10-12",              "11-15kg"],
+    ["Seated Row",        "3x10-12",             "4.5-8kg"],
+    ["Glute Kickback",    "3x12",                  "5-10kg"],
+    ["Rear Delt Machine", "3x12-15",              "2.5-5kg"],
+    ["Leg Extension",     "2-3x10-12",             "5-10kg"],
+    ["Crunch Machine",    "2-3x10-12", "Bodyweight or light"],
+    ["Walk",              "5-8 min",             "Easy pace"]
   ]
 };
 
@@ -81,7 +87,7 @@ function getSuggestion(exName, fallback) {
   const rLabel = r ? `${r.emoji} ${r.label}` : "no rating";
   const arrow  = delta > 0 ? "↑" : delta < 0 ? "↓" : "→";
   return {
-    text: `Last: ${w} kg (${rLabel}) ${arrow} Try ${next} kg`,
+    text: `Last: ${w} kg (${rLabel}) ${arrow} Try ${next} kg`,
     suggested: next,
     lastNote
   };
@@ -127,7 +133,7 @@ function renderWorkout() {
         </div>
         <div class="meta">${ex[1]}</div>
         <div class="suggestion">${suggestion.text}</div>
-        ${pb > 0 ? `<div class="pbBadge" id="pb_${i}">🏆 PB: ${pb} kg</div>` : `<div id="pb_${i}"></div>`}
+        ${pb > 0 ? `<div class="pbBadge" id="pb_${i}">🏆 PB: ${pb} kg</div>` : `<div id="pb_${i}"></div>`}
         ${noteReminder}
         <input id="weight_${i}" placeholder="Weight used (kg)" inputmode="decimal" value="${prefill}"
           oninput="checkPB(${i},'${name}')">
@@ -168,10 +174,10 @@ function checkPB(i, exName) {
   const el  = document.getElementById(`pb_${i}`);
   if (!el) return;
   if (!isNaN(val) && val > pb) {
-    el.innerHTML = `🏆 New PB incoming! ${val} kg`;
+    el.innerHTML = `🏆 New PB incoming! ${val} kg`;
     el.className = "pbBadge pbNew";
   } else if (pb > 0) {
-    el.innerHTML = `🏆 PB: ${pb} kg`;
+    el.innerHTML = `🏆 PB: ${pb} kg`;
     el.className = "pbBadge";
   } else {
     el.innerHTML = "";
