@@ -42,7 +42,7 @@ function renderWorkout() {
   const card = document.createElement("div");
   card.className = "card";
 
-  let rows = PLAN[currentDay].map((ex, i) => `
+  const rows = PLAN[currentDay].map((ex, i) => `
     <div class="exercise">
       <h3>${ex[0]}</h3>
       <div class="meta">${ex[1]} · Recommended ${ex[2]}</div>
@@ -68,9 +68,9 @@ function logSession() {
   }));
 
   const session = {
-    id:       Date.now(),
-    day:      currentDay,
-    date:     new Date().toLocaleString(),
+    id:        Date.now(),
+    day:       currentDay,
+    date:      new Date().toLocaleString(),
     exercises: exercises
   };
 
@@ -178,11 +178,13 @@ function deleteSession(idx) {
 /* ── Progress chart ── */
 
 let chart;
+const select = document.getElementById("exerciseSelect");
 
-function renderChart() {
-  const select = document.getElementById("exerciseSelect");
+// Attach the onchange ONCE at startup — never overwrite it again
+select.addEventListener("change", () => renderChart(select.value));
 
-  // Build flat list of all exercise names that appear in history
+function renderChart(forcedName) {
+  // Build deduplicated list of all exercise names across all sessions
   const allNames = [];
   data.history.forEach(session => {
     session.exercises.forEach(ex => {
@@ -190,8 +192,10 @@ function renderChart() {
     });
   });
 
+  // Rebuild options while preserving the current selection
+  const prev = forcedName || select.value;
   select.innerHTML = allNames.length
-    ? allNames.map(n => `<option value="${n}">${n}</option>`).join("")
+    ? allNames.map(n => `<option value="${n}"${n === prev ? " selected" : "}">${n}</option>`).join("")
     : `<option value="">No data yet</option>`;
 
   if (!allNames.length) {
@@ -199,17 +203,20 @@ function renderChart() {
     return;
   }
 
-  const selected = select.value || allNames[0];
+  // Use forcedName, then whatever is now selected in the dropdown
+  const selected = forcedName && allNames.includes(forcedName)
+    ? forcedName
+    : (select.value || allNames[0]);
   select.value = selected;
 
-  // Collect weight per session for the selected exercise
+  // Collect one data point per session that contains this exercise
   const points = [];
   data.history.forEach((session, i) => {
     const match = session.exercises.find(ex => ex.name === selected);
     if (match) {
       const w = parseFloat(match.weight);
       points.push({
-        label: `S${i + 1} · ${session.date.split(",")[0]}`,
+        label: `S${i + 1} (${session.date.split(",")[0]})`,
         value: isNaN(w) ? null : w
       });
     }
@@ -224,20 +231,19 @@ function renderChart() {
       labels: points.map(p => p.label),
       datasets: [{
         label: `${selected} (kg)`,
-        data:  points.map(p => p.value),
+        data:   points.map(p => p.value),
         tension: 0.35,
         fill: true,
         borderColor: "#e75480",
         backgroundColor: "rgba(231,84,128,0.12)",
         pointBackgroundColor: "#e75480",
+        pointRadius: 5,
         spanGaps: true
       }]
     },
     options: {
       responsive: true,
-      plugins: {
-        legend: { display: true }
-      },
+      plugins: { legend: { display: true } },
       scales: {
         y: {
           beginAtZero: false,
@@ -246,8 +252,6 @@ function renderChart() {
       }
     }
   });
-
-  select.onchange = renderChart;
 }
 
 /* ── Service worker ── */
